@@ -1,1 +1,1 @@
-a,an,the,stars,one,two,three,four,five
+a,an,the

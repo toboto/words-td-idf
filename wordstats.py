@@ -12,13 +12,13 @@ def read_stop_words():
 def split_words(s, stopwords):
     results = {}
     try:
-        words = re.split(r'(\W+)', s)
+        words = re.split(r'(\w+)', s)
         if len(words) <= 0:
             return results
 
         for w in words:
-            w = w.strip().strip(",").strip(".").strip("-").strip("_")\
-                .strip("(").strip(")").strip("!").strip(":").strip("'").strip('"').lower()
+            w = re.sub(r"[\(\),.!:&#<>/';\{\}]", '', w)
+            w = w.strip().strip("-").strip("_").replace('"', '').lower()
             if len(w) <= 0 or w in stopwords:
                 continue
 
@@ -44,9 +44,9 @@ def parse_csv_files(source, output):
     stopwords = read_stop_words()
     df = pd.read_csv(source)
 
-    header = "word,cnt_in_head,cnt_in_body,cnt,review_id,review_date,customer_id"\
-        + ",product_id,product_parent,product_title,product_category,star_rating" \
-          ",vine,verified_purchase"
+    header = ["word", "cnt_in_head", "cnt_in_body", "cnt", "review_id", "review_date", "customer_id",
+              "product_id","product_parent", "product_title", "product_category", "star_rating",
+              "vine", "verified_purchase", "helpful_votes", "total_votes", "helpful_rate"]
 
     data = []
     for i, row in df.iterrows():
@@ -54,6 +54,7 @@ def parse_csv_files(source, output):
         words_in_body = split_words(str(row['review_body']), stopwords)
         vine = 0 if row['vine'].lower() == 'n' else 1
         verified_purchase = 0 if row['verified_purchase'].lower() == 'n' else 1
+        helpful = float(row["helpful_votes"] / row["total_votes"]) if row["total_votes"] > 0 else 0
         for (w, cnt_in_head) in words_in_head.items():
             if w in words_in_body:
                 cnt_in_body = words_in_body[w]
@@ -63,14 +64,14 @@ def parse_csv_files(source, output):
             data.append([
                 w, cnt_in_head, cnt_in_body, cnt_in_head + cnt_in_body, row['review_id'], row['review_date'], row['customer_id'],
                 row['product_id'], row['product_parent'], row['product_title'], row['product_category'], row['star_rating'],
-                vine, verified_purchase
+                vine, verified_purchase, row["helpful_votes"], row["total_votes"], helpful
                 ])
 
         for (w, cnt_in_body) in words_in_body.items():
             data.append([
                 w, 0, cnt_in_body, cnt_in_body, row['review_id'], row['review_date'], row['customer_id'],
                 row['product_id'], row['product_parent'], row['product_title'], row['product_category'], row['star_rating'],
-                vine, verified_purchase
+                vine, verified_purchase, row["helpful_votes"], row["total_votes"], helpful
             ])
 
     save_csv_file(header, data, output)
