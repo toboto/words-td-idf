@@ -2,6 +2,7 @@ import math
 import pandas as pd
 from wordstats import save_csv_file
 
+
 def calculate_idf(df, word, column, total):
     """
     Calculate IDF value of a specific word
@@ -26,7 +27,7 @@ def calculate_idf(df, word, column, total):
     return max(0, rt)
 
 
-if __name__ == "__main__":
+def generate_idf():
     source = "output-data/words_in_hair_dryer.csv"
     df0 = pd.read_csv(source, usecols=["word", "cnt_in_head", "cnt_in_body", "cnt", "review_id"])
     source = "output-data/words_in_microwave.csv"
@@ -36,10 +37,7 @@ if __name__ == "__main__":
 
     df = df0.append(df1).append(df2)
 
-    print(df.shape)
     print("words", len(df['word'].astype("str").unique()))
-
-    print(df.columns)
 
     total = len(df['review_id'].unique())
     print("total document", total)
@@ -58,12 +56,62 @@ if __name__ == "__main__":
 
     save_csv_file(headers, results, "output-data/idf.csv")
 
-# print(df.head(20))
-# print(df['word'].unique())
-#
-# print("\n\n\n")
-#
-# print(df.head(20))
-# df = df[df['word'] == "and"]
-# print(df.groupby("word").sum())
-# print(df.head(20))
+
+def refresh_tfidf(source, output, idffile):
+    idf = pd.read_csv(idffile)
+    df = pd.read_csv(source)
+    print("Converting ", source, df.shape[0])
+
+    review_df = df.groupby("review_id").sum()
+    counter = {'hcnt': 0, 'bcnt': 0, 'cnt': 0}
+
+    def __refresh_row_tfidf_in_head(r):
+        widf_frame = idf[idf['word'] == r['word']]
+        widf = widf_frame.iloc[0]['idf'] if widf_frame.shape[0] == 1 else 0
+        words_cnt_in_head = review_df.loc[r['review_id'], 'cnt_in_head']
+        counter['hcnt'] += 1
+        if counter['hcnt'] % 100 == 0:
+            print(counter['hcnt'])
+        return r['cnt_in_head'] / words_cnt_in_head * widf if words_cnt_in_head > 0 else 0
+
+    def __refresh_row_tfidf_in_body(r):
+        widf_frame = idf[idf['word'] == r['word']]
+        widf = widf_frame.iloc[0]['idf'] if widf_frame.shape[0] == 1 else 0
+        words_cnt_in_body = review_df.loc[r['review_id'], 'cnt_in_body']
+        counter['bcnt'] += 1
+        if counter['bcnt'] % 100 == 0:
+            print(counter['bcnt'])
+        return r['cnt_in_body'] / words_cnt_in_body * widf if words_cnt_in_body > 0 else 0
+
+    def __refresh_row_tfidf(r):
+        widf_frame = idf[idf['word'] == r['word']]
+        widf = widf_frame.iloc[0]['idf'] if widf_frame.shape[0] == 1 else 0
+        words_cnt = review_df.loc[r['review_id'], 'cnt']
+        counter['cnt'] += 1
+        if counter['cnt'] % 100 == 0:
+            print(counter['cnt'])
+        return r['cnt'] / words_cnt * widf if words_cnt > 0 else 0
+
+    df['tfidf_in_head'] = df.apply(__refresh_row_tfidf_in_head, axis=1)
+    df['tfidf_in_body'] = df.apply(__refresh_row_tfidf_in_body, axis=1)
+    df['tfidf'] = df.apply(__refresh_row_tfidf, axis=1)
+    df.to_csv(output)
+
+
+if __name__ == "__main__":
+    generate_idf()
+
+    # Notice: The following calculation may exhaust a long time
+    idffile = "output-data/idf.csv"
+    source = "output-data/words_in_microwave.csv"
+    output = "output-data/words_in_microwave_tfidf.csv"
+    refresh_tfidf(source, output, idffile)
+
+    source = "output-data/words_in_hair_dryer.csv"
+    output = "output-data/words_in_hair_dryer_tfidf.csv"
+    refresh_tfidf(source, output, idffile)
+
+    source = "output-data/words_in_pacifier.csv"
+    output = "output-data/words_in_pacifier_tfidf.csv"
+    refresh_tfidf(source, output, idffile)
+
