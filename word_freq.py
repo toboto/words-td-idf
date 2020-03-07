@@ -48,17 +48,27 @@ def refresh_word_freq(source, output, stopwords):
     word_freq.to_csv(output)
 
 
-def load_word_freq_division(source):
+def load_word_freq_division(source, limit = 0):
     df = pd.read_csv(source)
+    idf = pd.read_csv("output-data/idf.csv")
+
+    df = pd.merge(df, idf, on="word")
+
+    if limit > 0:
+        df = df.sort_values(by="idf", ascending=False, ignore_index=True).head(limit)
+
     word_dict = {}
     for idx, row in df.iterrows():
         word_dict[row['word']] = idx
     return word_dict
 
 
-def load_word_freq(source):
+def load_word_freq(source, limit = 0):
     df = pd.read_csv(source)
     word_dict = {}
+    if limit > 0:
+        df = df.sort_values(by="freq").head(limit)
+
     for idx, row in df.iterrows():
         word_dict[row['word']] = row['freq']
     return word_dict
@@ -70,7 +80,11 @@ if __name__ == "__main__":
     # output = "output-data/word_freq_in_microwave.csv"
     # refresh_word_freq(source, output, stopwords)
 
-    source = "output-data/words_in_hair_dryer_tfidf.csv"
-    output = "output-data/word_freq_in_hair_dryer.csv"
+    # source = "output-data/words_in_hair_dryer_tfidf.csv"
+    # output = "output-data/word_freq_in_hair_dryer.csv"
+    # refresh_word_freq(source, output, stopwords)
+
+    source = "output-data/words_in_pacifier_tfidf.csv"
+    output = "output-data/word_freq_in_pacifier.csv"
     refresh_word_freq(source, output, stopwords)
 
